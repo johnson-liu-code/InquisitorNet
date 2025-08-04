@@ -16,6 +16,13 @@ from dataclasses import dataclass, asdict
 from apscheduler.schedulers.background import BackgroundScheduler
 import threading
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -684,8 +691,10 @@ def main():
         logger.info("InquisitorNet stopped.")
 
 if __name__ == "__main__":
-    # main()
-    pass
+    main()
+
+
+
 
 
 # Additional utility functions and classes
