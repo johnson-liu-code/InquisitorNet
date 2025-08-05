@@ -3,12 +3,10 @@
 -------------------------------------------------------------------------
 InquisitorNet/
 ├── inquisitor_net.py          # Main bot code
-├── setup.py                   # Setup script
+├── inquisitor_net.log
 ├── requirements.txt           # Python dependencies
 ├── .env                       # Environment variables (not in git)
-├── .env.example               # Example environment file
 ├── README.md                  # Project documentation
-├── logs/                      # Log files directory
 ├── data/                      # Database and data files
 │   └── inquisitor_net.db      # SQLite database
 ├── tests/                     # Unit tests
