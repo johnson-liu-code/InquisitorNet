@@ -32,3 +32,30 @@ python inquisitor_net.py  # starts scheduler
 
 ---
 
+
+
+---
+
+# Phase 1 (adapted) – Scraper + Detector
+
+This repository now contains a **Phase 1 pipeline** that matches your latest scope:  
+- **Set‑1 Scraper** with allow/avoid controls and a **fixtures** mode (default).  
+- **Set‑2 Detector** using configurable regex **rules + weights** with an optional LLM explainer stub (noop by default).  
+- **SQLite DB** schema for: `scrape_hits`, `detector_marks`, and `detector_acquittals` (plus placeholders for future phases).
+
+## Quick start (fixtures mode)
+
+```bash
+python -m pip install -r requirements.txt
+python -m phase1.cli
+# -> Scraper kept X items. Detector → marked Y, acquitted Z. DB: inquisitor_net_phase1.db
+```
+
+Config files (all editable at runtime):  
+- `config/subreddits.yml` – allow/avoid lists and `mode: fixtures|api`.  
+- `config/scraper_rules.yml` – include/exclude regex, discard rules, context fetch hints.  
+- `config/detector_rules.yml` – rule patterns, weights, thresholds.
+
+DB migrations: `migrations/001_init.sql`.
+
+**Note:** Reddit API mode is scaffolded but not enabled in this Phase‑1 adaptation; use fixtures until your private sub is ready.

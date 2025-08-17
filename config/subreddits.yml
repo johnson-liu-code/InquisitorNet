@@ -1,0 +1,6 @@
+allow:
+  - InquisitorNetPrivateA
+  - InquisitorNetPrivateB
+avoid: []
+mode: "fixtures"          # api | fixtures
+fixtures_path: "fixtures/reddit_sample.jsonl"

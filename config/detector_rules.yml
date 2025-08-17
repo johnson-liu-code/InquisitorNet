@@ -1,0 +1,24 @@
+rules:
+  - id: H001
+    name: "Explicit heresy terms"
+    pattern: "(?i)heres(y|ies)|excommunicate|corruption"
+    weight: 0.8
+    exculpatory: []
+  - id: H010
+    name: "Allegiance claims"
+    pattern: "(?i)pledge|devotion|cult"
+    weight: 0.6
+    exculpatory:
+      - "(?i)mini painting|list discussion|tabletop match|kitbash"
+features:
+  use_sentiment_signals: false   # true when your SA tool is ready
+  weight_sentiment: 0.15
+thresholds:
+  mark: 0.65
+  acquit: 0.35
+explanation:
+  style: "brief, neutral, no lore IP"
+llm:
+  role: "detector_explainer"
+  provider: "noop"   # noop | openai (later)
+  model: "light"

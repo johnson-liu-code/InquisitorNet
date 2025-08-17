@@ -1,0 +1,25 @@
+keywords:
+  include:
+    - "(?i)heresy"
+    - "(?i)xenos"
+    - "(?i)daemon|daemonic"
+  exclude:
+    - "(?i)memes only"
+match_policy: "any"             # any | all
+context:
+  fetch_parent: 1
+  fetch_children: 0
+  fetch_siblings: 0
+store_fields:
+  - id
+  - subreddit
+  - author
+  - body
+  - created_utc
+  - parent_id
+  - link_id
+  - permalink
+rate_limit:
+  requests_per_minute: 60
+discard_if:
+  - "len(body) < 20"

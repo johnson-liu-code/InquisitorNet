@@ -1,0 +1,21 @@
+checks:
+  - id: OOU1
+    name: "Out-of-universe references"
+    pattern: "(?i)modern politics|celebrity|stock ticker|brand"
+    action: "flag"
+  - id: IP1
+    name: "Third-party IP identifiers"
+    pattern: "(?i)warhammer|games workshop|imperium of man|space marine"
+    action: "flag"
+  - id: SAF1
+    name: "Unsafe or harassing content"
+    pattern: "(?i)slur1|slur2|kill yourself"
+    action: "block"
+llm:
+  enabled: true
+  role: "policy_gate_judge"
+  model: "light"
+  style: "brief, neutral, cite which check(s) triggered"
+decision_policy:
+  block_if: ["SAF1"]
+  flag_if_any: ["OOU1","IP1"]
