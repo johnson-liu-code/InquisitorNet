@@ -1,0 +1,27 @@
+Phase 3 outline (for later; not implemented)
+
+Goal: Introduce Inquisitors (Set-3) with review-before-post flow and dossier generation (kept private in your own subreddit), leveraging the Policy Gate.
+
+Main Features:
+
+Inquisitor agent that consumes detector_marks, decides high|medium|low, and prepares planned_action (post draft|dossier|log).
+
+Dossier writer (markdown + JSON header) pulling only allow-listed domain history.
+
+Human review queue + Policy Gate check → approve/deny drafts for your private subreddit.
+
+Implementation Details:
+
+New tables for planned_actions and dossiers; re-use policy_checks.
+
+CLI to render and queue drafts; optional email of queue summaries.
+
+Agreed Specifications:
+
+No public posting; private sub only; human review mandatory.
+
+Strict anonymization and allow-list constraints remain in force.
+
+Notable Considerations:
+
+Gate false positives mitigation; add adjustable redaction bands; keep logs audit-friendly.
