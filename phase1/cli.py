@@ -1,8 +1,8 @@
 from pathlib import Path
-from phase1.config import Settings
-from phase1.db import get_conn, migrate
-from phase1.scraper import run_scraper_to_db
-from phase1.detector import run_detector_to_db
+from config import Settings
+from db import get_conn, migrate
+from scraper import run_scraper_to_db
+from detector import run_detector_to_db
 
 BASE = Path(__file__).resolve().parents[1]
 
