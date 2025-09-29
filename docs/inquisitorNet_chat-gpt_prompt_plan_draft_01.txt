@@ -1,0 +1,144 @@
+
+Thanks—got your clarifications and the blueprint. Based on those, here’s a concrete, low-risk plan broken into **four phases** (scaffold → detect → adjudicate → summarize/disseminate), plus storage/design choices and crypto scaffolding. I’m **not** writing handoff instructions yet, per your PDF; this is the plan only.&#x20;
+
+# Phased plan
+
+## Phase 1 — Foundations & ingestion (no LLMs; private test subs only)
+
+**What this phase achieves**
+
+* Read from your **project-owned, private subreddits only**, with flexible allow/avoid lists for later.&#x20;
+* Implement **Set-1 scrapers** (API + keywords + queue + storage; no LLM).&#x20;
+* Add **retention controls** and **redaction rules** (start by redacting usernames and links).&#x20;
+* Central DB to store: marked inputs (future), thoughts, discussions, actions, and summaries (tables sketched below).&#x20;
+
+**Definition of done (DoD)**
+
+* Scrapers reliably ingest comments + context (parent/siblings/children) into storage with timestamps and source IDs.&#x20;
+* Config allows toggling sub allow/avoid lists without code changes.&#x20;
+* Redaction/retention policies are editable at runtime (e.g., JSON/YAML).&#x20;
+
+---
+
+## Phase 2 — Detector (Set-2) and gating scaffold (Set-4), still non-posting
+
+**What this phase achieves**
+
+* **Set-2** “marking-heresy” service: consumes Phase-1 data, uses a **lighter LLM** + your rule set to score “potential heresy” and attach context pointers.&#x20;
+* **Set-4** policy-review skeleton: a gate that will later approve/deny any planned post for “out-of-universe/prohibited” content. (Enabled now as a dry-run checker; no posts yet.)&#x20;
+* Persist “mark” decisions; prepare the triage outputs needed by inquisitors (high/medium/low).&#x20;
+
+**DoD**
+
+* Given a batch, detector emits: `{score, rationale, matched_rules, context_refs}` and writes to DB.
+* Gate returns `{allow|flag, reasons[]}`, logged for every hypothetical post.
+
+---
+
+## Phase 3 — Inquisitors (Set-3) with **review-before-post**, dossiers, and full logging
+
+**What this phase achieves**
+
+* **LLM-driven roleplay inquisitors** consume Set-2 marks, decide **(heretical? yes/no) ∧ priority (high/medium/low)**, and choose an action.&#x20;
+* **Actions**:
+
+  * **High** → prepare a public-style post (but in your private sub) and **queue for your manual review before posting**. &#x20;
+  * **Medium** → generate a **dossier** pulling only from WH40K-related history; save for other inquisitors to discuss; **not public by default**.  &#x20;
+  * **Low** → log for future reference (backlog).&#x20;
+* **Everything**—internal thoughts, discussions, decisions—**logged in DB** for auditability. &#x20;
+* **Reply capability** scaffolded (only in your private sub; subject to the policy gate and your review).&#x20;
+
+**DoD**
+
+* Inquisitor outputs: `{final_label, priority, rationale, planned_action, post_draft?}`.
+* Dossier (markdown): Summary, Entities, Claims (+confidence), Contradictions, “For Review” notes. (Saved; **not auto-published**.)&#x20;
+
+---
+
+## Phase 4 — Summaries (Set-5), lore-rich scaffold (Set-6), and email dissemination (Set-7)
+
+**What this phase achieves**
+
+* **Set-5**: concise summaries from logs for internal/patron use (short, safe, redacted).&#x20;
+* **Set-6**: **scaffold only** for lore-rich expansions and extra guardrails/redactions (implementation later).&#x20;
+* **Set-7**: basic **email automation** to deliver summaries; no Discord/Patreon integration yet. &#x20;
+
+**DoD**
+
+* Given a time window, system emits a redacted weekly brief and mails it to a test list.
+* Redaction rules applied (usernames/links removed) with runtime-editable policy.&#x20;
+
+---
+
+# Cross-cutting architecture (keeps cost/complexity low)
+
+**Service shape**
+
+* Start **modular-monolith**: one repo with clear packages (scraper, detector, inquisitor, gate, summarizer, mailer) and a **job queue** between stages (e.g., Redis). If cost/latency grows, split services along these same boundaries later—matches your note about possibly restructuring roles.&#x20;
+
+**Storage**
+
+* **Postgres** (dev can be SQLite, migrate later). Tables (minimal):
+
+  * `sources(subreddit, allow, avoid, active)`;
+  * `items(id, kind, body, author_token, context_json, created_utc)`;
+  * `marks(item_id, score, rules, rationale, created_at)`;
+  * `decisions(item_id, label, priority, rationale, actor, created_at)`;
+  * `actions(decision_id, type, payload_json, status, created_at)`;
+  * `logs(scope, text_redacted, meta_json, created_at)`;
+  * `dossiers(id, subject_token, markdown, created_at, visibility)`;
+  * `policies(redaction_json, retention_days, updated_at)`;
+  * `models(role, provider, model, params_json, updated_at)` for **easy LLM switching**. &#x20;
+
+**Redaction & retention**
+
+* Implement as **policies** loaded at runtime: start with `username`, `links` removal; add tokens like `[USER-A]`, `[FORUM-01]`. Retention is enforced by a daily TTL job.&#x20;
+
+**Model routing**
+
+* A thin **LLM client** with a config table/env vars lets you switch provider/model per “bot set” without code changes (e.g., Set-2 uses a light model; Set-3 uses a stronger one).&#x20;
+
+**Manual review gates**
+
+* All “planned posts” pass through the policy gate and then a **human-review queue** before anything hits Reddit—exactly your beta requirement. &#x20;
+
+# Crypto scaffolding (roleplay; scaffold now, fill later)
+
+* Create an `encoded_messages` action type and a **Keyring** record: `{month, scheme_name, params_json}`.&#x20;
+* Implement **mock encoders/decoders** with deterministic placeholders now; swap in real algorithms later. Provide a simple CLI that outputs payload + metadata for inclusion in comments.&#x20;
+* Keep the method understandable to you and eventually to patrons (later, a tiny web decoder).&#x20;
+
+# Triage logic (aligns to your rules)
+
+* **High**: draft post → policy gate → human review → (private) subreddit publish.&#x20;
+* **Medium**: generate **dossier** from WH40K-only history; store; queue discussion; not public unless you explicitly select it. &#x20;
+* **Low**: store in backlog with summary only.&#x20;
+
+# Minimal data contracts (so Emergent can implement later without surprises)
+
+* **Mark** (Set-2 → Set-3):
+
+  ```json
+  { "item_id": "...", "score": 0.0-1.0, "priority_hint": "high|med|low",
+    "matched_rules": ["..."], "rationale": "text", "context_refs": {...} }
+  ```
+* **Decision** (Set-3):
+
+  ```json
+  { "item_id": "...", "label": "heretical|not_heretical|uncertain",
+    "priority": "high|med|low", "rationale": "text",
+    "planned_action": {"type": "post|dossier|log", "payload": {...}} }
+  ```
+* **Dossier** (markdown + JSON header): subject tokenized; includes summary, entities, claims(+confidence), contradictions, recommendation, redactions applied.&#x20;
+
+# Why four phases (vs. more)
+
+* Matches your “slow with 3–4 (maybe 5)” guidance, yet cleanly separates risk: ingestion, detection, adjudication, and dissemination. You can insert a **Phase 5** later for sentiment analysis and public-facing channels if you want.&#x20;
+
+---
+
+## Risks & mitigations
+
+* **Scope creep across bot sets** → Keep a strict contract between sets; if Set-1 and Set-2 merge later, the same event schema still applies.&#x20;
+* **Privacy/IP** → Redaction policy is mandatory; no real usernames/links in dossiers/summaries unless explicitly approved by you. &#x20;
+* **Posting safety** → Policy gate + human review queue; post only in your private sub(s) during beta.
