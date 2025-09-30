@@ -1,0 +1,59 @@
+# Python cache/bytecode
+__pycache__/
+phase1/__pycache__/
+phase2/__pycache__/
+phase3/__pycache__/
+core/__pycache__/
+tools/__pycache__/
+cryptography/__pycache__/
+verifications/__pycache__/
+
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment files
+*.env
+!.env.example
+
+# Databases
+*.db
+*.sqlite3
+*.sqlite
+
+# Logs & reports
+*.log
+reports/
+*.csv
+*.md
+!docs/*.md  # keep docs under version control
+
+# Test & coverage
+.coverage
+htmlcov/
+.cache/
+pytest_cache/
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Generated artifacts
+*.zip
+*.tar.gz
+*.egg-info/
+dist/
+build/
