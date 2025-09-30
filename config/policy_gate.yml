@@ -1,21 +1,37 @@
-checks:
-  - id: OOU1
-    name: "Out-of-universe references"
-    pattern: "(?i)modern politics|celebrity|stock ticker|brand"
-    action: "flag"
-  - id: IP1
-    name: "Third-party IP identifiers"
-    pattern: "(?i)warhammer|games workshop|imperium of man|space marine"
-    action: "flag"
-  - id: SAF1
-    name: "Unsafe or harassing content"
-    pattern: "(?i)slur1|slur2|kill yourself"
-    action: "block"
-llm:
-  enabled: true
-  role: "policy_gate_judge"
-  model: "light"
-  style: "brief, neutral, cite which check(s) triggered"
-decision_policy:
-  block_if: ["SAF1"]
-  flag_if_any: ["OOU1","IP1"]
+# config/policy_gate.yml
+rules:
+  - id: 'ip_copyright_terms'
+    category: 'ip'
+    pattern: '\b(leak(ed|ing)?|copyright(ed)?|DMCA|pirate|torrent)\b'
+    weight: 1.0
+    action: 'flag'
+
+  - id: 'pii_email'
+    category: 'pii'
+    pattern: '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+    weight: 1.0
+    action: 'block'
+
+  - id: 'pii_phone'
+    category: 'pii'
+    pattern: '\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})\b'
+    weight: 1.0
+    action: 'block'
+
+  - id: 'harassment_terms'
+    category: 'safety'
+    pattern: '\b(dumb|idiot|moron|hate|kill|violence)\b'
+    weight: 1.0
+    action: 'flag'
+
+  - id: 'out_of_universe_marker'
+    category: 'oou'
+    pattern: '\b(As an AI|language model|LLM|ChatGPT)\b'
+    weight: 1.0
+    action: 'flag'
+
+  - id: 'links_external'
+    category: 'links'
+    pattern: 'https?://'
+    weight: 0.5
+    action: 'note'

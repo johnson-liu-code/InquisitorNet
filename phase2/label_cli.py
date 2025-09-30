@@ -1,78 +1,67 @@
-
-"""
-Labeling CLI (Phase 2)
-----------------------
-Samples recent items from detector_marks and near-threshold candidates
-to record TP/FP/TN/FN labels for calibration. Interactive mode is optional.
-
-Writes to the `labels` table.
-"""
-from __future__ import annotations
+# phase2/label_cli.py
+import argparse, sqlite3, sys
 from pathlib import Path
-from typing import List, Tuple
-import argparse, random, sqlite3, sys
 
-def get_conn(db_path: str|Path) -> sqlite3.Connection:
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    return sqlite3.connect(str(db_path))
+DB_DEFAULT = "inquisitor_net.db"
 
-def migrate(conn: sqlite3.Connection, sql_path: str|Path):
-    with open(sql_path, "r", encoding="utf-8") as f:
-        conn.executescript(f.read())
-    conn.commit()
+SCHEMA = {
+    "labels": "CREATE TABLE IF NOT EXISTS labels(item_id TEXT PRIMARY KEY, label TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+}
 
-def sample_item_ids(conn: sqlite3.Connection, sample: int=20) -> List[Tuple[str, str]]:
-    """Return list of (item_id, source_table) from detector_marks (and later near-threshold pool)."""
+def ensure_schema(conn):
+    for ddl in SCHEMA.values():
+        conn.execute(ddl)
+
+def sample_items(conn, near_threshold_only=False, limit=20):
+    # Heuristic: sample from detector_marks plus near-threshold in a 'scores' view if available
     cur = conn.cursor()
-    ids = [(row[0], "detector_marks") for row in cur.execute("SELECT item_id FROM detector_marks ORDER BY id DESC LIMIT 200")]
-    random.shuffle(ids)
-    return ids[:sample]
-
-def add_label(conn: sqlite3.Connection, item_id: str, label: str, notes: str=""):
-    cur = conn.cursor()
-    cur.execute("INSERT INTO labels (item_id, label, notes) VALUES (?,?,?)", (item_id, label, notes))
-    conn.commit()
-
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="inquisitor_net_phase1.db")
-    ap.add_argument("--migrations", default="migrations/002_phase2.sql")
-    ap.add_argument("--sample", type=int, default=20)
-    ap.add_argument("--mode", choices=["interactive","auto-skip"], default="auto-skip",
-                    help="interactive prompts for labels; auto-skip only checks wiring.")
-    args = ap.parse_args(argv)
-
-    conn = get_conn(args.db)
-    migrate(conn, args.migrations)
-
-    items = sample_item_ids(conn, args.sample)
-    if not items:
-        print("No items available to label. Ensure detector_marks has rows.", file=sys.stderr)
-        return 1
-
-    if args.mode == "auto-skip":
-        # Just record placeholder TN for wiring test
-        for item_id, _src in items:
-            add_label(conn, item_id, "TN", "auto-skip placeholder")
-        print(f"Wrote {len(items)} placeholder labels (TN).")
-        return 0
-
-    # interactive
-    print("Press T/F/N/B for TP/FP/TN/FN; ENTER to skip; 'q' to quit.")
-    for item_id, source in items:
-        print(f"\nItem: {item_id} from {source}")
-        key = input("[T]P/[F]P/[N]T/[B]FN/[Enter]=skip/[q]uit: ").strip().lower()
-        m = {"t":"TP","f":"FP","n":"TN","b":"FN"}
-        if key == "q":
-            break
-        label = m.get(key)
-        if label:
-            add_label(conn, item_id, label)
-            print(f" -> Labeled {item_id} as {label}")
+    items = []
+    try:
+        if near_threshold_only:
+            # Attempt to read detector_scores if exists; else fallback
+            cur.execute("""
+                SELECT item_id FROM detector_marks ORDER BY RANDOM() LIMIT ?
+            """, (limit,))
         else:
-            print(" -> Skipped.")
-    print("Done.")
-    return 0
+            cur.execute("""
+                SELECT item_id FROM detector_marks
+                UNION
+                SELECT item_id FROM detector_acquittals
+                ORDER BY RANDOM() LIMIT ?
+            """, (limit,))
+        items = [r[0] for r in cur.fetchall()]
+    except sqlite3.OperationalError:
+        cur.execute("SELECT item_id FROM detector_marks ORDER BY RANDOM() LIMIT ?", (limit,))
+        items = [r[0] for r in cur.fetchall()]
+    return items
+
+def label_loop(conn, items):
+    print("Label items as TP/FP/TN/FN. Enter to skip. Ctrl+C to exit.")
+    ensure_schema(conn)
+    for it in items:
+        print(f"Item: {it}")
+        label = input("Label [TP/FP/TN/FN/skip]: ").strip().upper()
+        if not label or label == "SKIP":
+            continue
+        if label not in {"TP","FP","TN","FN"}:
+            print("Invalid label; skipping.")
+            continue
+        conn.execute("INSERT OR REPLACE INTO labels(item_id, label) VALUES (?,?)", (it, label))
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--db", default=DB_DEFAULT)
+    ap.add_argument("--limit", type=int, default=20)
+    ap.add_argument("--near-threshold", action="store_true")
+    args = ap.parse_args()
+    with sqlite3.connect(args.db) as conn:
+        items = sample_items(conn, near_threshold_only=args.near_threshold, limit=args.limit)
+        if not sys.stdin.isatty():
+            print("Non-interactive session; listing items only:")
+            for it in items:
+                print(it)
+            return
+        label_loop(conn, items)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
